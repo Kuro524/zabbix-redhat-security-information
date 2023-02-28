@@ -1,0 +1,143 @@
+zabbix_export:
+  version: '6.0'
+  date: '2023-02-28T14:50:44Z'
+  groups:
+    -
+      uuid: 0bb7bc11ed3d4855a75c59d9ae558a26
+      name: OpenData
+  hosts:
+    -
+      host: 'RedHat Security'
+      name: 'RedHat Security'
+      description: RedHatのセキュリティ情報配信Feedを解析する
+      groups:
+        -
+          name: OpenData
+      items:
+        -
+          name: CVRFデータ取得(OpenJDK)
+          type: HTTP_AGENT
+          key: redhat.com.sec.cvrf.OpenJDK
+          delay: 10m
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            -
+              type: CHECK_NOT_SUPPORTED
+              parameters:
+                - ''
+            -
+              type: DISCARD_UNCHANGED
+              parameters:
+                - ''
+            -
+              type: TRIM
+              parameters:
+                - '{"body":,}'
+          url: 'https://access.redhat.com/hydra/rest/securitydata/cvrf.json'
+          query_fields:
+            -
+              name: per_page
+              value: '1'
+            -
+              name: package
+              value: OpenJDK
+          output_format: JSON
+          tags:
+            -
+              tag: class
+              value: CVRF
+            -
+              tag: package
+              value: OpenJDK
+          triggers:
+            -
+              expression: 'find(/RedHat Security/redhat.com.sec.cvrf.OpenJDK,,,"critical")=1'
+              recovery_mode: NONE
+              name: OpenJDKにまつわるクリティカルな脆弱性が検出されました
+              priority: WARNING
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                -
+                  tag: severity
+                  value: critical
+            -
+              expression: 'find(/RedHat Security/redhat.com.sec.cvrf.OpenJDK,,,"important")=1'
+              recovery_mode: NONE
+              name: OpenJDKにまつわる重要な脆弱性が検出されました
+              priority: INFO
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                -
+                  tag: severity
+                  value: important
+        -
+          name: CVEデータ取得(全件)
+          type: HTTP_AGENT
+          key: redhat.com.sec.json.all
+          delay: 30m
+          trends: '0'
+          value_type: TEXT
+          url: 'https://access.redhat.com/hydra/rest/securitydata/cve.json?per_page=50'
+          output_format: JSON
+          tags:
+            -
+              tag: class
+              value: CVE
+        -
+          name: critical情報収集
+          type: DEPENDENT
+          key: redhat.com.sec.json.critical
+          delay: '0'
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            -
+              type: CHECK_NOT_SUPPORTED
+              parameters:
+                - ''
+            -
+              type: JSONPATH
+              parameters:
+                - '$..[?(@.severity==''critical'')]'
+            -
+              type: DISCARD_UNCHANGED
+              parameters:
+                - ''
+          master_item:
+            key: redhat.com.sec.json.all
+          tags:
+            -
+              tag: class
+              value: CVE
+            -
+              tag: severity
+              value: critical
+        -
+          name: important情報収集
+          type: DEPENDENT
+          key: redhat.com.sec.json.important
+          delay: '0'
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            -
+              type: JSONPATH
+              parameters:
+                - '$..[?(@.severity==''important'')]'
+            -
+              type: DISCARD_UNCHANGED
+              parameters:
+                - ''
+          master_item:
+            key: redhat.com.sec.json.all
+          tags:
+            -
+              tag: class
+              value: CVE
+            -
+              tag: severity
+              value: important
+      inventory_mode: DISABLED
